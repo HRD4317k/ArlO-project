@@ -1,0 +1,370 @@
+{
+  "checkpoint_dir": "runs/hmarl_baseline_true_delta_resume_5000/checkpoints",
+  "checkpoints": [
+    2500
+  ],
+  "modes": [
+    "zero",
+    "combined",
+    "3agent_sac_gp_fm",
+    "3agent_sac_gp_pinn",
+    "3agent_sac_fm_pinn",
+    "3agent_gp_fm_pinn",
+    "2agent_sac_gp",
+    "2agent_sac_fm",
+    "2agent_sac_pinn",
+    "2agent_gp_fm",
+    "2agent_gp_pinn",
+    "2agent_fm_pinn",
+    "sac",
+    "gp",
+    "fm",
+    "pinn"
+  ],
+  "n_episodes_per_mode": 3,
+  "seed_offset": 90000,
+  "delta_range": [
+    0.25,
+    0.45
+  ],
+  "results": {
+    "2500": {
+      "zero": {
+        "num_episodes": 3,
+        "delta_slope_mean": 1.883988849257725e-05,
+        "delta_slope_std": 1.2372178920251142e-05,
+        "delta_change_mean": 0.017846932013829548,
+        "delta_change_std": 0.011556612139709809,
+        "mean_reward_mean": 138.519037988638,
+        "mean_reward_std": 71.6883239775051,
+        "episode_length_mean": 1000.0,
+        "episode_length_std": 0.0,
+        "improvement_rate": 0.0,
+        "worsening_rate": 0.0,
+        "terminated_early_rate": 0.0,
+        "steps_to_critical": {
+          "count": 0,
+          "mean": null,
+          "std": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "combined": {
+        "num_episodes": 3,
+        "delta_slope_mean": 3.0070530088888256e-05,
+        "delta_slope_std": 2.12592862665519e-05,
+        "delta_change_mean": 0.028301656246185303,
+        "delta_change_std": 0.019993858727310566,
+        "mean_reward_mean": 175.94386346543266,
+        "mean_reward_std": 100.97563584543465,
+        "episode_length_mean": 1000.0,
+        "episode_length_std": 0.0,
+        "improvement_rate": 0.0,
+        "worsening_rate": 0.0,
+        "terminated_early_rate": 0.0,
+        "steps_to_critical": {
+          "count": 0,
+          "mean": null,
+          "std": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "3agent_sac_gp_fm": {
+        "num_episodes": 3,
+        "delta_slope_mean": 3.0077709246172114e-05,
+        "delta_slope_std": 2.126435913478639e-05,
+        "delta_change_mean": 0.028313905000686646,
+        "delta_change_std": 0.02000232199444449,
+        "mean_reward_mean": 175.86621071241584,
+        "mean_reward_std": 100.88057641034659,
+        "episode_length_mean": 1000.0,
+        "episode_length_std": 0.0,
+        "improvement_rate": 0.0,
+        "worsening_rate": 0.0,
+        "terminated_early_rate": 0.0,
+        "steps_to_critical": {
+          "count": 0,
+          "mean": null,
+          "std": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "3agent_sac_gp_pinn": {
+        "num_episodes": 3,
+        "delta_slope_mean": 3.0075168453848326e-05,
+        "delta_slope_std": 2.126246492067047e-05,
+        "delta_change_mean": 0.02830982208251953,
+        "delta_change_std": 0.019998586221006885,
+        "mean_reward_mean": 175.9552540370353,
+        "mean_reward_std": 100.94152469543756,
+        "episode_length_mean": 1000.0,
+        "episode_length_std": 0.0,
+        "improvement_rate": 0.0,
+        "worsening_rate": 0.0,
+        "terminated_early_rate": 0.0,
+        "steps_to_critical": {
+          "count": 0,
+          "mean": null,
+          "std": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "3agent_sac_fm_pinn": {
+        "num_episodes": 3,
+        "delta_slope_mean": 1.6231647974006135e-05,
+        "delta_slope_std": 1.1471799592599384e-05,
+        "delta_change_mean": 0.015634973843892414,
+        "delta_change_std": 0.011025854506372048,
+        "mean_reward_mean": 130.41709067211968,
+        "mean_reward_std": 68.68861696452862,
+        "episode_length_mean": 1000.0,
+        "episode_length_std": 0.0,
+        "improvement_rate": 0.0,
+        "worsening_rate": 0.0,
+        "terminated_early_rate": 0.0,
+        "steps_to_critical": {
+          "count": 0,
+          "mean": null,
+          "std": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "3agent_gp_fm_pinn": {
+        "num_episodes": 3,
+        "delta_slope_mean": 1.6199048442598174e-05,
+        "delta_slope_std": 1.1450762309303623e-05,
+        "delta_change_mean": 0.015591780344645182,
+        "delta_change_std": 0.011007868237889061,
+        "mean_reward_mean": 130.18656334333568,
+        "mean_reward_std": 68.69454680111004,
+        "episode_length_mean": 1000.0,
+        "episode_length_std": 0.0,
+        "improvement_rate": 0.0,
+        "worsening_rate": 0.0,
+        "terminated_early_rate": 0.0,
+        "steps_to_critical": {
+          "count": 0,
+          "mean": null,
+          "std": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "2agent_sac_gp": {
+        "num_episodes": 3,
+        "delta_slope_mean": 3.0073311243262332e-05,
+        "delta_slope_std": 2.1260647374713206e-05,
+        "delta_change_mean": 0.02830544114112854,
+        "delta_change_std": 0.01999189522624922,
+        "mean_reward_mean": 175.87214795308094,
+        "mean_reward_std": 100.71725966481118,
+        "episode_length_mean": 1000.0,
+        "episode_length_std": 0.0,
+        "improvement_rate": 0.0,
+        "worsening_rate": 0.0,
+        "terminated_early_rate": 0.0,
+        "steps_to_critical": {
+          "count": 0,
+          "mean": null,
+          "std": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "2agent_sac_fm": {
+        "num_episodes": 3,
+        "delta_slope_mean": 3.0065428691041044e-05,
+        "delta_slope_std": 2.1254689287475374e-05,
+        "delta_change_mean": 0.02829204003016154,
+        "delta_change_std": 0.019979579684375703,
+        "mean_reward_mean": 175.79818933847926,
+        "mean_reward_std": 100.73060096440469,
+        "episode_length_mean": 1000.0,
+        "episode_length_std": 0.0,
+        "improvement_rate": 0.0,
+        "worsening_rate": 0.0,
+        "terminated_early_rate": 0.0,
+        "steps_to_critical": {
+          "count": 0,
+          "mean": null,
+          "std": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "2agent_sac_pinn": {
+        "num_episodes": 3,
+        "delta_slope_mean": 2.483481862039073e-05,
+        "delta_slope_std": 1.756595552137015e-05,
+        "delta_change_mean": 0.0232105553150177,
+        "delta_change_std": 0.016398445233873116,
+        "mean_reward_mean": 158.7951686184143,
+        "mean_reward_std": 88.84285714975773,
+        "episode_length_mean": 1000.0,
+        "episode_length_std": 0.0,
+        "improvement_rate": 0.0,
+        "worsening_rate": 0.0,
+        "terminated_early_rate": 0.0,
+        "steps_to_critical": {
+          "count": 0,
+          "mean": null,
+          "std": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "2agent_gp_fm": {
+        "num_episodes": 3,
+        "delta_slope_mean": 3.0077629993670963e-05,
+        "delta_slope_std": 2.126458338020969e-05,
+        "delta_change_mean": 0.02831299106280009,
+        "delta_change_std": 0.020004614837249992,
+        "mean_reward_mean": 175.87918880597567,
+        "mean_reward_std": 100.9925920659748,
+        "episode_length_mean": 1000.0,
+        "episode_length_std": 0.0,
+        "improvement_rate": 0.0,
+        "worsening_rate": 0.0,
+        "terminated_early_rate": 0.0,
+        "steps_to_critical": {
+          "count": 0,
+          "mean": null,
+          "std": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "2agent_gp_pinn": {
+        "num_episodes": 3,
+        "delta_slope_mean": 1.7140604184545315e-05,
+        "delta_slope_std": 1.2116714334762842e-05,
+        "delta_change_mean": 0.016633133093516033,
+        "delta_change_std": 0.011745450575599678,
+        "mean_reward_mean": 134.34992546297568,
+        "mean_reward_std": 71.61672860791691,
+        "episode_length_mean": 1000.0,
+        "episode_length_std": 0.0,
+        "improvement_rate": 0.0,
+        "worsening_rate": 0.0,
+        "terminated_early_rate": 0.0,
+        "steps_to_critical": {
+          "count": 0,
+          "mean": null,
+          "std": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "2agent_fm_pinn": {
+        "num_episodes": 3,
+        "delta_slope_mean": 1.0902228233757079e-05,
+        "delta_slope_std": 7.375375104456498e-06,
+        "delta_change_mean": 0.0114249587059021,
+        "delta_change_std": 0.00766683306301708,
+        "mean_reward_mean": 110.12774325245418,
+        "mean_reward_std": 57.97695082113239,
+        "episode_length_mean": 1000.0,
+        "episode_length_std": 0.0,
+        "improvement_rate": 0.0,
+        "worsening_rate": 0.0,
+        "terminated_early_rate": 0.0,
+        "steps_to_critical": {
+          "count": 0,
+          "mean": null,
+          "std": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "sac": {
+        "num_episodes": 3,
+        "delta_slope_mean": 5.029787964513341e-06,
+        "delta_slope_std": 3.5693232671438915e-06,
+        "delta_change_mean": 0.004713018735249837,
+        "delta_change_std": 0.003338117943017607,
+        "mean_reward_mean": 175.89071742716456,
+        "mean_reward_std": 100.57583779566474,
+        "episode_length_mean": 1000.0,
+        "episode_length_std": 0.0,
+        "improvement_rate": 0.0,
+        "worsening_rate": 0.0,
+        "terminated_early_rate": 0.0,
+        "steps_to_critical": {
+          "count": 0,
+          "mean": null,
+          "std": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "gp": {
+        "num_episodes": 3,
+        "delta_slope_mean": 3.007401676257121e-05,
+        "delta_slope_std": 2.1261835496309695e-05,
+        "delta_change_mean": 0.028304288784662884,
+        "delta_change_std": 0.019996639851257512,
+        "mean_reward_mean": 175.87272832173593,
+        "mean_reward_std": 100.85443295656589,
+        "episode_length_mean": 1000.0,
+        "episode_length_std": 0.0,
+        "improvement_rate": 0.0,
+        "worsening_rate": 0.0,
+        "terminated_early_rate": 0.0,
+        "steps_to_critical": {
+          "count": 0,
+          "mean": null,
+          "std": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "fm": {
+        "num_episodes": 3,
+        "delta_slope_mean": 1.6959352677626718e-05,
+        "delta_slope_std": 9.623901911481831e-06,
+        "delta_change_mean": 0.016204973061879475,
+        "delta_change_std": 0.00889662634136281,
+        "mean_reward_mean": 139.79298665192775,
+        "mean_reward_std": 48.92006012539735,
+        "episode_length_mean": 1000.0,
+        "episode_length_std": 0.0,
+        "improvement_rate": 0.0,
+        "worsening_rate": 0.0,
+        "terminated_early_rate": 0.0,
+        "steps_to_critical": {
+          "count": 0,
+          "mean": null,
+          "std": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "pinn": {
+        "num_episodes": 3,
+        "delta_slope_mean": 4.420447436916945e-06,
+        "delta_slope_std": 2.809368152265978e-06,
+        "delta_change_mean": 0.004669557015101115,
+        "delta_change_std": 0.002911750447859155,
+        "mean_reward_mean": 76.9512095147142,
+        "mean_reward_std": 35.14293995362601,
+        "episode_length_mean": 1000.0,
+        "episode_length_std": 0.0,
+        "improvement_rate": 0.0,
+        "worsening_rate": 0.0,
+        "terminated_early_rate": 0.0,
+        "steps_to_critical": {
+          "count": 0,
+          "mean": null,
+          "std": null,
+          "min": null,
+          "max": null
+        }
+      }
+    }
+  }
+}

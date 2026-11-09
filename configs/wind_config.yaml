@@ -1,0 +1,175 @@
+# CEMRL-HMARL Configuration for Wind Turbine Environment
+# Implements continual meta-reinforcement learning for dynamic degradation regimes
+
+# ═══════════════════════════════════════════════════════════════
+# SYSTEM
+# ═══════════════════════════════════════════════════════════════
+device: "auto"  # auto, cpu, cuda, mps
+seed: 42
+
+# ═══════════════════════════════════════════════════════════════
+# ENVIRONMENT
+# ═══════════════════════════════════════════════════════════════
+env:
+  name: "WindTurbine"
+  # Physics parameters (from NREL 5MW reference turbine)
+  physics:
+    J: 1e6         # Rotor inertia (kg·m²)
+    B: 100.0       # Damping coefficient (N·m·s/rad)
+    R: 40.0        # Rotor radius (m)
+
+  # Operational constraints
+  constraints:
+    omega_min: 0.5   # Min rotor speed (rad/s)
+    omega_max: 1.5   # Max rotor speed (rad/s)
+    T_min: 0.0       # Min torque (kN·m)
+    T_max: 100.0     # Max torque (kN·m)
+
+  # Degradation regimes
+  degradation:
+    enabled: true
+    initial_regime: 0  # 0: healthy, 1: mild, 2: moderate, 3: severe
+    transition_prob: 0.01  # Probability of regime transition per episode
+
+# ═══════════════════════════════════════════════════════════════
+# AGENTS
+# ═══════════════════════════════════════════════════════════════
+agents:
+  # Agent 1: Soft Actor-Critic (SAC)
+  sac:
+    hidden_dim: 256
+    lr_actor: 3e-4
+    lr_critic: 3e-4
+    gamma: 0.99
+    tau: 0.005
+    alpha: 0.2
+    auto_entropy: true
+
+  # Agent 2: Physics-Informed Neural Network (PINN)
+  pinn:
+    hidden_dim: 128
+    lr: 1e-3
+    lambda_physics: 1.0
+    lambda_boundary: 0.5
+
+  # Agent 3: Gaussian Process (GP)
+  gp:
+    lr: 0.01
+    lengthscale_init: 1.0
+    noise_init: 0.1
+    n_inducing: 100
+
+  # Agent 4: Failure Mode (FM) - Context-based anomaly detection
+  fm:
+    window_size: 50
+    anomaly_threshold: 2.5
+
+# ═══════════════════════════════════════════════════════════════
+# SHARED EMBEDDING
+# ═══════════════════════════════════════════════════════════════
+embedding:
+  shared_dim: 64
+  lambda_orth: 0.01  # Orthogonality regularization
+
+# ═══════════════════════════════════════════════════════════════
+# ARBITER (Standard HMARL-DRT)
+# ═══════════════════════════════════════════════════════════════
+arbiter:
+  hidden_dim: 128
+  temperature: 1.0
+  lr: 1e-3
+
+# ═══════════════════════════════════════════════════════════════
+# CEMRL COMPONENTS
+# ═══════════════════════════════════════════════════════════════
+cemrl:
+  enabled: true
+
+  # EWC (Elastic Weight Consolidation) for catastrophic forgetting prevention
+  ewc:
+    lambda_base: 400.0        # Base EWC penalty coefficient
+    beta_lambda: 0.1          # Regime-adaptive scaling factor
+    gamma_decay: 0.95         # Online EWC exponential decay
+    fisher_samples: 256       # Number of samples for Fisher computation
+    diagonal_approx: true     # Use diagonal Fisher approximation
+
+  # PEARL (Context Encoder) for regime identification
+  pearl:
+    embedding_dim: 32         # Task embedding dimension z_task
+    context_window: 20        # Number of transitions to encode
+    hidden_dim: 128           # Encoder hidden dimension
+    lr: 3e-4                  # Learning rate
+    pretrain_epochs: 0        # Optional: pre-train with supervised regime labels
+    ema_alpha: 0.05           # Centroid update rate
+
+  # CEMRL Arbiter (MAML-based meta-learning for gating)
+  cemrl_arbiter:
+    hidden_dim: 128           # Gating network hidden dimension
+    alpha_inner: 0.01         # Inner loop learning rate (fast adaptation)
+    alpha_outer: 0.001        # Outer loop learning rate (meta-learning)
+    delta_kl: 0.01            # HATRPO KL divergence constraint
+    meta_update_freq: 100     # Steps between meta-updates
+    n_inner_steps: 5          # Number of inner loop gradient steps
+    task_buffer_size: 500     # Max transitions per task buffer
+
+  # Regime Detector (hysteresis-based transition detection)
+  regime_detector:
+    hysteresis_buffer: 10     # Consecutive timesteps to confirm transition
+    delta_threshold: 0.1      # Degradation level threshold
+    uncertainty_threshold: 0.3  # GP uncertainty threshold
+    adaptive_hysteresis: false  # Scale buffer based on uncertainty
+
+# ═══════════════════════════════════════════════════════════════
+# REWARD SHAPING
+# ═══════════════════════════════════════════════════════════════
+reward:
+  # Initial component weights
+  initial_weights:
+    power: 0.5
+    health: 0.3
+    efficiency: 0.1
+    stability: 0.1
+
+  # Dynamic reweighting parameters
+  kappa: 0.1              # Learning rate for weight updates
+  lambda_entropy: 0.01    # Entropy regularization
+  alpha_rul: 0.01         # RUL-based weight adjustment
+
+  # Phase-based evolution
+  phase_mid_step: 50000   # Early → Mid phase transition
+  phase_late_step: 150000 # Mid → Late phase transition
+
+# ═══════════════════════════════════════════════════════════════
+# TRANSFER LEARNING
+# ═══════════════════════════════════════════════════════════════
+transfer:
+  lambda_pn: 0.1          # T1: Physics → NN residual regularization
+  lambda_ng: 0.05         # T3: NN → GP exploration guidance
+  lambda_gn: 0.05         # T3: GP → NN uncertainty bonus
+  lambda_np: 0.1          # T4: NN → Physics residual correction
+  lambda_fm: 0.02         # T5: FM → All reward reweighting
+  fm_confidence_threshold: 0.7  # Min confidence for FM guidance
+
+# ═══════════════════════════════════════════════════════════════
+# TRAINING
+# ═══════════════════════════════════════════════════════════════
+training:
+  n_episodes: 1000
+  batch_size: 256
+  buffer_size: 1000000
+  update_freq: 4          # Steps between updates
+  warmup_steps: 1000      # Random policy warmup
+
+# ═══════════════════════════════════════════════════════════════
+# LOGGING
+# ═══════════════════════════════════════════════════════════════
+logging:
+  log_dir: "runs/"
+  use_tensorboard: true
+  print_freq: 10          # Episodes between prints
+  save_freq: 100          # Episodes between checkpoints
+
+  # CEMRL-specific metrics
+  track_fisher: true      # Log Fisher matrix norms
+  track_regime_clusters: true  # Save t-SNE visualizations
+  track_adaptation_time: true  # Measure regime re-adaptation speed

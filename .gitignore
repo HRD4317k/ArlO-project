@@ -1,0 +1,102 @@
+# ═══════════════════════════════════════════════════════
+# HMARL-DRT .gitignore
+# ═══════════════════════════════════════════════════════
+
+# ── Python ────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ── Virtual Environments ─────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── IDE / Editor ─────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# ── OS Files ─────────────────────────────────────────
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ── Training Runs & Artifacts ────────────────────────
+# TensorBoard event files (large binary, reproducible)
+*.tfevents*
+
+# Model checkpoints (large binary, reproducible)
+*.pt
+*.pth
+*.ckpt
+runs/*/checkpoints/
+hmarl_drt/runs/*/checkpoints/*.pt
+hmarl_drt/runs/*/checkpoints/*.pth
+
+# Job manager state files
+hmarl_drt/runs/.jobs/
+
+# Keep training CSV logs (small, useful for analysis)
+# but ignore run directories that are auto-generated
+# Uncomment the next line to ignore all run data:
+# hmarl_drt/runs/
+
+# ── Jupyter / IPython ────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+profile_default/
+ipython_config.py
+
+# ── Testing / Coverage ──────────────────────────────
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# ── Distribution / Packaging ────────────────────────
+*.whl
+*.tar.gz
+
+# ── Logs ─────────────────────────────────────────────
+*.log
+
+# ── Secrets / Environment Variables ──────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Backup files ─────────────────────────────────────
+*_old.py
+*.bak
+*.orig
+
+# ── Binary research documents (keep .txt version) ───
+*.docx
+*.pdf

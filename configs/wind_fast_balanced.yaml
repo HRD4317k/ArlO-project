@@ -1,0 +1,144 @@
+# Balanced configuration for HMARL‑DRT Phase 2
+# Goal: keep wall‑clock time low while preserving training quality.
+# Uses many parallel environments and a moderate batch size.
+
+# ────────────────────────────────────────────────────────────────
+# SYSTEM
+# ────────────────────────────────────────────────────────────────
+device: "auto"
+seed: 42
+
+# ────────────────────────────────────────────────────────────────
+# ENVIRONMENT
+# ────────────────────────────────────────────────────────────────
+env:
+  name: "WindTurbine"
+  num_envs: 48               # high parallelism – fast data generation
+  physics:
+    J: 1e6
+    B: 100.0
+    R: 40.0
+  constraints:
+    omega_min: 0.5
+    omega_max: 1.5
+    T_min: 0.0
+    T_max: 100.0
+  degradation:
+    enabled: true
+    initial_regime: 0
+    transition_prob: 0.01
+    sample_regime_each_episode: true
+    regime_probs: [0.45, 0.25, 0.20, 0.10]
+    regime_delta_ranges:
+      "0": [0.00, 0.25]
+      "1": [0.25, 0.50]
+      "2": [0.50, 0.75]
+      "3": [0.75, 0.95]
+    initial_delta_min: 0.00
+    initial_delta_max: 0.20
+
+# ────────────────────────────────────────────────────────────────
+# AGENTS (unchanged from the main config – kept for reference)
+# ────────────────────────────────────────────────────────────────
+agents:
+  sac:
+    hidden_dim: 256
+    lr_actor: 3e-4
+    lr_critic: 3e-4
+    gamma: 0.99
+    tau: 0.005
+    alpha: 0.2
+    auto_entropy: true
+  pinn:
+    hidden_dim: 128
+    lr: 1e-3
+    lambda_physics: 1.0
+    lambda_boundary: 0.5
+  gp:
+    lr: 0.01
+    lengthscale_init: 1.0
+    noise_init: 0.1
+    n_inducing: 100
+  fm:
+    window_size: 50
+    anomaly_threshold: 2.5
+    model_name: "gpt-4o-mini"
+    temperature: 0.3
+    confidence_threshold: 0.7
+    use_api: false
+    api_timeout_s: 8.0
+    api_interval: 250
+
+# ────────────────────────────────────────────────────────────────
+# SHARED EMBEDDING
+# ────────────────────────────────────────────────────────────────
+embedding:
+  shared_dim: 64
+  lambda_orth: 0.01
+
+# ────────────────────────────────────────────────────────────────
+# ARBITER (standard HMARL‑DRT)
+# ────────────────────────────────────────────────────────────────
+arbiter:
+  hidden_dim: 128
+  temperature: 1.0
+  lr: 1e-3
+  min_nn_weight: 0.10
+  min_nn_weight_initial: 0.40
+  curriculum_episodes: 300
+
+# ────────────────────────────────────────────────────────────────
+# CEMRL (disabled for Phase 2 baseline)
+# ────────────────────────────────────────────────────────────────
+cemrl:
+  enabled: false
+
+# ────────────────────────────────────────────────────────────────
+# REWARD SHAPING
+# ────────────────────────────────────────────────────────────────
+reward:
+  initial_weights:
+    energy: 0.10
+    rul: 0.20
+    safety: 0.30
+    physics: 0.30
+    curiosity: 0.10
+  kappa: 0.1
+  lambda_entropy: 0.01
+  alpha_rul: 0.01
+  curiosity_norm: 100.0
+  phase_mid_step: 50000
+  phase_late_step: 150000
+
+# ────────────────────────────────────────────────────────────────
+# TRANSFER LEARNING
+# ────────────────────────────────────────────────────────────────
+transfer:
+  lambda_pn: 0.1
+  lambda_ng: 0.05
+  lambda_gn: 0.05
+  lambda_np: 0.1
+  lambda_fm: 0.02
+  fm_confidence_threshold: 0.7
+
+# ────────────────────────────────────────────────────────────────
+# TRAINING
+# ────────────────────────────────────────────────────────────────
+training:
+  n_episodes: 3000          # enough updates for a solid baseline
+  batch_size: 12000         # moderate batch – fits comfortably in GPU memory
+  buffer_size: 1000000
+  update_freq: 8            # optimizer step every 8 env steps
+  warmup_steps: 1000
+
+# ────────────────────────────────────────────────────────────────
+# LOGGING
+# ────────────────────────────────────────────────────────────────
+logging:
+  log_dir: "runs/"
+  use_tensorboard: true
+  print_freq: 100
+  save_freq: 500
+  track_fisher: false
+  track_regime_clusters: false
+  track_adaptation_time: false

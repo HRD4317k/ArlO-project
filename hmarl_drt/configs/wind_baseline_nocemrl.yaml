@@ -1,0 +1,172 @@
+use_async_env: false
+env:
+  name: WindTurbine-v0
+  n_turbines: 1
+  dt: 0.1
+  max_steps: 1000
+  num_envs: 8
+  physics:
+    J: 40000000.0
+    B: 100.0
+    R: 40.0
+    rho: 1.225
+    C_th: 5000.0
+    h_conv: 1000.0
+    deg_acceleration: 1.5
+  constraints:
+    omega_min: 0.5
+    omega_max: 1.5
+    T_max: 100.0
+    delta_crit: 0.9
+  degradation:
+    enabled: true
+    sample_regime_each_episode: true
+    initial_delta_min: 0.0
+    initial_delta_max: 0.2
+    regime_probs:
+    - 0.25
+    - 0.25
+    - 0.25
+    - 0.25
+    regime_delta_ranges:
+      '0':
+      - 0.0
+      - 0.25
+      '1':
+      - 0.25
+      - 0.5
+      '2':
+      - 0.5
+      - 0.75
+      '3':
+      - 0.75
+      - 0.95
+  state_dim: 8
+  action_dim: 3
+agents:
+  sac:
+    hidden_dim: 256
+    lr_actor: 0.0003
+    lr_critic: 0.0003
+    gamma: 0.99
+    tau: 0.005
+    alpha: 0.2
+    auto_entropy: true
+  pinn:
+    hidden_dim: 128
+    lr: 0.001
+    lambda_ode: 1.0
+    lambda_bc: 0.1
+  gp:
+    backend: ipae
+    lr: 0.001
+  fm:
+    model_name: gpt-oss-120b
+    use_adjustments: true
+    temperature: 0.3
+    max_tokens: 256
+    confidence_threshold: 0.7
+    use_api: true
+    api_timeout_s: 8.0
+    api_interval: 50
+embedding:
+  shared_dim: 64
+  agent_dims:
+  - 128
+  - 32
+  - 128
+  - 64
+  n_agents: 4
+  lambda_orth: 0.01
+arbiter:
+  hidden_dim: 128
+  temperature: 1.0
+  lr: 0.001
+  eta: 0.7
+  warning_caution: 0.5
+  safety_margin_frac: 0.15
+reward:
+  initial_weights:
+    energy: 0.1
+    rul: 0.15
+    safety: 0.3
+    physics: 0.2
+    curiosity: 0.1
+    degradation: 0.15
+  physics_violation_penalty: 0.1
+  kappa: 0.1
+  lambda_entropy: 0.01
+  alpha_rul: 0.01
+  phase_mid_step: 50000
+  phase_late_step: 150000
+transfer:
+  lambda_pn: 0.1
+  lambda_ng: 0.05
+  lambda_gn: 0.05
+  lambda_np: 0.1
+  lambda_fm: 0.02
+  fm_confidence_threshold: 0.7
+training:
+  n_episodes: 300
+  batch_size: 256
+  buffer_size: 1000000
+  update_freq: 4
+  warmup_steps: 1000
+  eval_freq: 50
+  save_freq: 100
+  checkpoint_every: 100
+  warm_start_checkpoint: null
+ipae:
+  latent_dim: 8
+  window_size: 10
+  n_features: 8
+  encoder_hidden: 64
+  lstm_hidden: 64
+  lstm_layers: 1
+  rul_hidden:
+  - 64
+  - 32
+  - 16
+  mc_dropout: 0.1
+  n_mc_samples: 10
+  lambda_rul: 1.0
+  lambda_kl: 0.01
+  lambda_mono: 0.5
+  lambda_physics: 1.0
+logging:
+  log_dir: runs/baseline_nocemrl/
+  use_tensorboard: true
+  use_wandb: false
+  print_freq: 10
+device: auto
+seed: 42
+cemrl:
+  enabled: false
+  use_latent_regime_detection: false
+  mask_true_delta: false
+  expose_true_delta_for_eval: true
+  allow_delta_bootstrap_fallback: true
+  n_latent_regimes: 4
+  fisher_min_interval_steps: 3000
+  z_task_dim: 32
+  ewc:
+    lambda_base: 400.0
+    beta_lambda: 0.1
+    gamma_decay: 0.95
+    fisher_clip: 10000.0
+    freeze: false
+  cemrl_arbiter:
+    hidden_dim: 128
+    alpha_inner: 0.005
+    alpha_outer: 0.001
+    delta_kl: 0.01
+    n_inner_steps: 5
+    meta_update_freq: 100
+    entropy_coef: 0.01
+  regime_detector:
+    hysteresis_buffer: 30
+    dwell_steps: 200
+  maml_warmstart:
+    n_regimes: 4
+    min_steps_before_save: 50
+    blend_alpha: 0.8

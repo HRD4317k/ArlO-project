@@ -1,0 +1,4 @@
+# Optional, pinned Laya server dependency. It is not part of the default
+# training requirements; the current CUDA environment already meets its declared
+# torch>=2.0 and transformers>=4.48 requirements.
+laya[serve]==0.4.2
