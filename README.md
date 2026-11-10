@@ -2,6 +2,7 @@
 
 **Course:** Applied Reinforcement Learning and Optimization (IM612031), IIT Kharagpur
 **Team:** Rishabh Dehariya (23IM10028), Sourav Upadhyay(23IM10035)
+**Team Name:** Meta Duo
 
 It implements exactly the project proposal and nothing more: one simulator, one RL algorithm (SAC), first-order MAML for
 meta-learning (in two variants), three baselines and the planned metrics. The simulator is driven by **real
