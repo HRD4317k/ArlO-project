@@ -1,10 +1,10 @@
 # Degradation-Aware Wind Turbine Control with SAC + FOMAML (real wind data)
 
-**Course:** Applied Reinforcement Learning and Optimization (IM612031), IIT Kharagpur
-**Team:** Rishabh Dehariya (23IM10028), Sourav Upadhyay(23IM10035)
+**Course:** Applied Reinforcement Learning and Optimization (IM612031), IIT Kharagpur\
+**Team:** Rishabh Dehariya (23IM10028), Sourav Upadhyay (23IM10035)\
 **Team Name:** Meta Duo
 
-It implements exactly the project proposal and nothing more: one simulator, one RL algorithm (SAC), first-order MAML for
+This project implements our proposal end to end: one simulator, one RL algorithm (SAC), first-order MAML for
 meta-learning (in two variants), three baselines and the planned metrics. The simulator is driven by **real
 measured wind** from a wind turbine's SCADA system.
 
@@ -269,21 +269,18 @@ Oracle (SAC trained on R3): 22.6; fixed controller: -5.6.
 | 4000 | 23.4 | 46.7 | 33.8 | 47.6 | 29.0 | +0.0034 | -0.0052 | -0.0094 | -0.0132 | -0.0075 |
 
 
-## 7. What was removed from HMARL-DRT, and why
+## 7. Design choices
 
-| Removed | Reason |
+| Choice | Why |
 |---|---|
-| GP / iPAE agent, PINN agent, foundation-model agent, LAYA agent | Not in the proposal; one learner (SAC) is enough to answer the research question |
-| Shared embedding space, MoE arbiter, transfer-learning hub | Only needed to combine several agents |
-| Dynamic (phase-adaptive) reward shaper | The proposal fixes the reward weights for all methods on purpose |
-| CEMRL / EWC continual learning, PEARL code | PEARL was an optional stretch baseline; EWC is not part of the plan |
-| FastAPI backend, Streamlit dashboard, vendored `fastapi`/`plotly`/`pydantic` stubs | Not needed for an RL course project |
-| ~20 validation / deep-dive scripts and ~25 YAML configs | Replaced by one runner and one figure script |
-| 8-D state with grid demand and weather forecast, maintenance action | Back to the proposal's state and the two control actions |
-| Synthetic sine-wave wind | Replaced by real 2018 SCADA wind with a time-based train/test split |
-
-The old environment also had a few modelling problems that the new one avoids (normalised and SI
-units mixed in the rotor equation, a hard-coded 15° base pitch, wind not tied to any data).
+| One learner (SAC) for every method | Differences between methods then come only from the initialisation (scratch, fine-tune, joint, meta-learned), which is what the research question asks about |
+| Reward weights fixed for all methods | A fair comparison: no method gets its own reward shaping |
+| Agent supervises a standard inner controller (pitch and torque offsets) | Keeps the turbine safe by default and keeps the action space small and bounded |
+| State $[\omega, v, T_{gen}, T_{bearing}, P_{out}, \delta]$ plus the two current offsets | The proposal's state; the offsets are needed because actions are increments |
+| Real 2018 SCADA wind with a time-based train/test split | Realistic wind variability, and every evaluation uses months no policy has trained on |
+| Simulator calibrated to the measured power curve | The turbine model produces the power the real turbine produces at each wind speed |
+| Consistent SI units, PI pitch control with no hard-coded base pitch | Physically consistent rotor dynamics |
+| One runner script and one figure script, everything seeded | The full study reproduces with two commands |
 
 ## 8. Limitations
 
