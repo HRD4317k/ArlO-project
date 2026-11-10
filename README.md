@@ -1,376 +1,308 @@
-<div align="center">
+# Degradation-Aware Wind Turbine Control with SAC + FOMAML (real wind data)
 
-# ⚡ HMARL-DRT
+**Course:** Applied Reinforcement Learning and Optimization (IM612031), IIT Kharagpur
+**Team:** Adarsh Singh (23GG10001), Palak Agarwal (23EC10055), Jeesica GR (23MT10027), Rishabh Dehariya (23IM10028)
 
-### Heterogeneous Multi-Agent Reinforcement Learning with Dynamic Reward Shaping & Bidirectional Transfer Learning
+This repository is the **reduced version** of the earlier HMARL-DRT code base. It implements exactly the
+project proposal and nothing more: one simulator, one RL algorithm (SAC), first-order MAML for
+meta-learning (in two variants), three baselines and the planned metrics. The simulator is driven by **real
+measured wind** from a wind turbine's SCADA system.
 
-*A novel framework for predictive maintenance and adaptive control of industrial systems*
+> **Research question.** Does a MAML-initialised SAC controller reduce degradation growth and adapt
+> faster after a regime change (including to a regime unseen during meta-training) than SAC trained
+> from scratch or fine-tuned from another regime?
 
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch 2.0+](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c.svg)](https://pytorch.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688.svg)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.25%2B-FF4B4B.svg)](https://streamlit.io/)
-[![License](https://img.shields.io/badge/License-Proprietary-gray.svg)]()
-
-</div>
-
----
-
-## Research Motivation
-
-Industrial predictive maintenance demands reasoning across multiple paradigms simultaneously — data-driven pattern recognition, physics-based modeling, uncertainty quantification, and high-level strategic planning. No single AI approach excels at all of these.
-
-**HMARL-DRT** addresses this by combining **four fundamentally different AI agents** into a unified, collaboratively learning system:
-
-> *"A heterogeneous multi-agent RL framework where neural, statistical, physics, and foundation model agents collaboratively learn a shared policy through bidirectional transfer learning, guided by a dynamic reward function that adapts to degradation stage, training phase, and semantic context."*
-
-### Key Research Questions
-
-1. **Can heterogeneous agents outperform homogeneous ensembles** by exploiting paradigm-specific strengths at different operational phases?
-2. **How should knowledge transfer be structured** between fundamentally different learning paradigms (neural ↔ statistical ↔ physics ↔ semantic)?
-3. **Can dynamic reward shaping** guided by degradation state and foundation model context accelerate convergence and improve safety?
+![pipeline](figures/fig0_pipeline.png)
 
 ---
 
-## System Architecture
+## 1. Repository layout
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        HMARL-DRT Framework                         │
-│                                                                     │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐            │
-│  │  Agent 1:    │    │  Agent 2:    │    │  Agent 3:    │            │
-│  │  SAC         │    │  GP / iPAE   │    │  Foundation  │            │
-│  │  (Deep RL)   │    │  (Bayesian)  │    │  Model       │            │
-│  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘            │
-│         │                   │                   │                    │
-│         │    ┌──────────────┴───────────────┐    │   ┌─────────────┐ │
-│         ├────┤  Shared Embedding Space       ├───┤   │  Agent 4:    │ │
-│         │    │  (Attention-Weighted Fusion)   │   │   │  PINN        │ │
-│         │    └──────────────┬───────────────┘    │   │  (Physics)   │ │
-│         │                   │                   │   └──────┬───────┘ │
-│         │                   ▼                   │          │         │
-│         │         ┌─────────────────┐           │          │         │
-│         └────────►│  Arbiter         │◄──────────┘──────────┘         │
-│                   │  (MoE Gating)    │                                │
-│                   └────────┬────────┘                                │
-│                            │ action                                  │
-│                            ▼                                         │
-│                   ┌─────────────────┐     ┌──────────────────┐      │
-│                   │  Wind Turbine    │────►│  Dynamic Reward   │      │
-│                   │  Environment     │     │  Shaper           │      │
-│                   │  (ODE Dynamics)  │     │  (Phase-Adaptive) │      │
-│                   └─────────────────┘     └──────────────────┘      │
-│                                                                     │
-│                   ┌──────────────────────────────────────┐          │
-│                   │  Transfer Learning Hub                │          │
-│                   │  (5 Bidirectional Knowledge Flows)    │          │
-│                   └──────────────────────────────────────┘          │
-└─────────────────────────────────────────────────────────────────────┘
-```
+| Path | What it is |
+|---|---|
+| `data/T1.csv` | Real SCADA data: one 3.6 MW turbine, 10-minute records for all of 2018 (50,530 rows) |
+| `windrl/data.py` | Loads and cleans the SCADA data, measured power curve, train/test split by date, wind segments |
+| `windrl/env.py` | Gymnasium environment: rotor, inner controller, bearing heat, wear δ, regimes R0-R3, reward |
+| `windrl/sac.py` | Soft Actor-Critic in plain PyTorch (tanh-Gaussian actor, twin critics, auto entropy) |
+| `windrl/core.py` | Training, evaluation, few-shot adaptation, FOMAML meta-training, fixed controller |
+| `experiments/run_all.py` | Runs Exp 1-4 + the β₂ ablation, writes `results/results.json` |
+| `experiments/make_figures.py` | Builds every figure in `figures/` and the tables in `results/RESULTS.md` |
+| `results/` | Raw results (`results.json`, per-job `jobs/*.json`), tables (`RESULTS.md`), trained models (`models/*.pt`), run log |
 
-### 7 Core Subsystems
-
-| # | Subsystem | Description |
-|---|-----------|-------------|
-| 1 | **Wind Turbine Environment** | Realistic ODE-based simulator with 8D state, 3D continuous actions |
-| 2 | **Heterogeneous Agent Pool** | SAC (Deep RL) + GP/iPAE (Bayesian) + FM (Foundation) + PINN (Physics) |
-| 3 | **Shared Embedding Space** | Attention-weighted fusion aligning agent encodings into $z_{\text{shared}}$ |
-| 4 | **Arbiter (Meta-Controller)** | MoE-style gating with degradation-aware routing & emergency overrides |
-| 5 | **Dynamic Reward Shaper** | 5-component reward adapting across 3 training phases, steered by FM |
-| 6 | **Transfer Learning Hub** | 5 bidirectional knowledge flows: Physics↔NN, NN↔GP, FM→All |
-| 7 | **iPAE Module** | Interpretable Physics-informed Autoencoder with 8 semantic latent dims |
-
----
-
-## Agent Specifications
-
-### Agent 1: SAC (Soft Actor-Critic) — Deep RL
-- **Role:** Primary policy optimizer (dominant in mid/late training)
-- **Architecture:** Gaussian Actor + Twin-Q Critics (256-dim hidden)
-- **Objective:** Maximum entropy RL: $\pi^* = \arg\max_\pi \mathbb{E}\left[\sum_t \gamma^t \left(r_t + \alpha \mathcal{H}(\pi(\cdot|s_t))\right)\right]$
-- **Receives:** Physics regularization (PINN), uncertainty bonus (GP), reward weights (FM)
-
-### Agent 2: GP/iPAE — Bayesian Uncertainty
-- **Role:** Uncertainty quantification, safe exploration, RUL estimation
-- **Architecture:** Deep Ensemble (5 models) with optional iPAE specialization
-- **Output:** Mean action $\mu_a$, epistemic uncertainty $\sigma^2$, RUL distribution
-- **iPAE Latent Space:** 8 physics-semantic dimensions (wear, thermal drift, fatigue, imbalance, lubrication, crack propagation, misalignment, residual)
-
-### Agent 3: Foundation Model — Strategic Reasoning
-- **Role:** High-level guidance, anomaly detection, dynamic reward weight suggestions
-- **Architecture:** Rule-based heuristics (LLM-ready interface)
-- **Output:** Reward weight modulation, anomaly flags, confidence-gated strategies
-
-### Agent 4: PINN — Physics-Informed Controller
-- **Role:** Safety-critical control (dominant in early training & emergencies)
-- **Architecture:** ODE-constrained neural network learning turbine dynamics
-- **Physics:** Aerodynamic torque $C_p(\lambda, \beta)$, thermal dynamics, degradation accumulation
-- **Output:** Conservative actions + dynamic safe bounds
-
----
-
-## Dynamic Reward Shaping
-
-The reward function adapts across training phases:
-
-$$r_t = \sum_{i=1}^{5} w_i(t) \cdot r_i(s_t, a_t, s_{t+1})$$
-
-| Component | Early Phase | Mid Phase | Late Phase |
-|-----------|:-----------:|:---------:|:----------:|
-| **Safety** | 0.50 | 0.25 | 0.15 |
-| **Physics** | 0.30 | 0.15 | 0.10 |
-| **RUL** | 0.20 | 0.35 | 0.25 |
-| **Energy** | 0.10 | 0.20 | 0.40 |
-| **Curiosity** | 0.10 | 0.05 | 0.10 |
-
-Weight evolution is further influenced by the Foundation Model's suggestions via: $\frac{dw}{dt} += \kappa(w_{\text{FM}} - w)$
-
----
-
-## Transfer Learning Hub
-
-Five bidirectional knowledge flows between agents:
-
-| Path | Direction | Mechanism | Strength |
-|------|-----------|-----------|:--------:|
-| T1 | Physics → NN | ODE residual as regularization loss | 0.10 |
-| T2 | NN → GP | Actor features inform GP ensemble | 0.05 |
-| T3 | GP → NN | Uncertainty bonus for exploration | 0.05 |
-| T4 | NN → Physics | Data-driven residual correction | 0.10 |
-| T5 | FM → All | Conditional semantic alignment (conf > 0.7) | 0.02 |
-
----
-
-## Degradation-Aware Routing
-
-The Arbiter dynamically shifts control authority based on component health:
-
-| Phase | δ Range | Dominant Agent | Strategy |
-|-------|:-------:|----------------|----------|
-| **Healthy** | < 0.3 | PINN (0.50) | Physics-guided conservative control |
-| **Degrading** | 0.3–0.7 | SAC (0.50) | Data-driven optimization |
-| **Critical** | > 0.7 | GP/iPAE (0.50) | Uncertainty-aware, RUL-focused |
-| **Emergency** | Anomaly | PINN (1.00) | Full physics override |
-
----
-
-## Project Structure
-
-```
-hmarl_drt/
-├── agents/                 # Heterogeneous agent implementations
-│   ├── sac_agent.py       #   Agent 1: Soft Actor-Critic (Deep RL)
-│   ├── gp_agent.py        #   Agent 2: GP / iPAE (Bayesian)
-│   ├── fm_agent.py        #   Agent 3: Foundation Model (Heuristic-LLM)
-│   └── pinn_agent.py      #   Agent 4: Physics-Informed NN
-├── core/                   # Core framework modules
-│   ├── arbiter.py         #   Meta-controller with MoE gating
-│   ├── embedding.py       #   Shared embedding space (attention fusion)
-│   ├── reward_shaper.py   #   Dynamic phase-adaptive reward
-│   └── transfer_hub.py    #   Bidirectional transfer learning (5 paths)
-├── envs/                   # Gymnasium environments
-│   └── wind_turbine_env.py #  Wind turbine ODE simulator (8D state, 3D action)
-├── ipae/                   # iPAE module (Agent 2 specialization)
-│   ├── encoder.py         #   Conv1D + BiLSTM + Attention pooling
-│   ├── decoder.py         #   Symmetric reconstruction
-│   ├── physics_module.py  #   ODE constraints + monotonicity enforcement
-│   ├── rul_head.py        #   RUL estimation with MC dropout
-│   └── pretrain.py        #   Pre-training pipeline + synthetic data
-├── backend/                # FastAPI REST API
-│   ├── main.py            #   App entry point, health, workflow endpoints
-│   ├── schemas.py         #   Pydantic request/response models
-│   ├── job_manager.py     #   Subprocess-based training orchestration
-│   └── routes/            #   API route modules
-│       ├── configs.py     #     Config CRUD (list, get, update, clone)
-│       ├── training.py    #     Training jobs (start, cancel, status, logs)
-│       ├── runs.py        #     Run metrics (browse, compare, download)
-│       └── simulation.py  #     Interactive environment rollouts
-├── dashboard/              # Streamlit interactive UI
-│   ├── app.py             #   Main application with page routing
-│   └── components/        #   Modular UI components
-│       ├── api_client.py  #     Centralized backend API client
-│       ├── charts.py      #     Plotly chart builders (12 chart types)
-│       ├── home.py        #     Home page with workflow guide
-│       ├── pages.py       #     All page renderers (7 pages)
-│       └── settings.py    #     System settings & API reference
-├── configs/                # YAML training configurations
-│   ├── wind_config.yaml   #   Production config (1000 episodes)
-│   └── test_config.yaml   #   Quick test config (50 episodes)
-├── utils/                  # Shared utilities
-│   ├── logger.py          #   CSV + TensorBoard logging
-│   ├── metrics.py         #   7-metric tracking system
-│   └── replay_buffer.py   #   Experience replay (1M capacity)
-├── runs/                   # Training run outputs (auto-generated)
-├── tests/                  # Test suite
-├── train.py               # Main training entry point
-└── requirements.txt       # Python dependencies
-```
-
----
-
-## Quick Start
-
-### 1. Prerequisites
-
-- Python 3.10+
-- pip
-
-### 2. Installation
+## 2. Quick start
 
 ```bash
-# Clone the repository
-git clone https://code.siemens.com/predictive-analytics-core/hmarl-drt.git
-cd hmarl-drt
-
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-# .venv\Scripts\activate   # Windows
-
-# Install dependencies
-pip install -r hmarl_drt/requirements.txt
+pip install -r requirements.txt
+python experiments/run_all.py --quick       # ~20 s smoke test of the whole pipeline
+python experiments/run_all.py               # full run: 5 seeds (~63 min on 2 CPU cores)
+python experiments/run_all.py --workers 8   # faster on a bigger machine / Colab
+python experiments/make_figures.py          # figures + results/RESULTS.md
 ```
 
-### 3. Run Training (CLI)
+No GPU is needed. Everything is seeded, so a rerun reproduces the numbers.
 
-```bash
-cd hmarl_drt
+## 3. Real data: what it is and how it is used
 
-# Quick test run (50 episodes)
-python train.py configs/test_config.yaml
+**Source.** *Wind Turbine SCADA Dataset* (B. Erisen, Kaggle), one turbine in Turkey, rated 3,600 kW,
+2018, columns: timestamp, active power, hub-height wind speed, the manufacturer's theoretical power
+curve, and wind direction. The copy in `data/` comes from the public GitHub mirror
+[dominodatalab/reference-project-wind-turbine-scada](https://github.com/dominodatalab/reference-project-wind-turbine-scada).
 
-# Full training run (1000 episodes)
-python train.py configs/wind_config.yaml
-```
+The data does three jobs:
 
-### 4. Start the Backend API
+1. **Wind input.** Each episode replays a real 2-hour stretch of measured 10-minute wind speeds,
+   linearly interpolated to the 1-second integration step, with small-scale turbulence added
+   (Ornstein-Uhlenbeck, turbulence intensity 10 %, because 10-minute SCADA averages cannot contain
+   second-scale gusts). Calm stretches (mean below 4 m/s, turbine idle) are skipped.
+2. **Calibration.** The rotor size and power-coefficient scale are set so the simulator's steady-state
+   power curve matches the turbine's *measured* power curve (after standard SCADA filtering of
+   downtime and curtailment rows). See the left panel below.
+3. **Honest train/test split by time.** Training (and adaptation) uses January-September 2018 wind;
+   every evaluation uses October-December 2018 wind, which no policy ever trains on.
 
-```bash
-cd hmarl_drt
-PYTHONPATH=$PWD python -m uvicorn backend.main:app --port 8000
-```
+![data](figures/fig1_real_data_and_calibration.png)
 
-API docs available at: `http://localhost:8000/docs`
+What the data does **not** contain: bearing temperatures, vibration or any degradation labels. Those
+parts of the model are physics-style assumptions (Section 4), as in the proposal.
 
-### 5. Launch the Dashboard
+## 4. Simulator (`windrl/env.py`)
 
-```bash
-cd hmarl_drt
-PYTHONPATH=$PWD streamlit run dashboard/app.py --server.port 8501
-```
+A simplified variable-speed turbine sized to the SCADA turbine (rotor radius 55 m, rated 3.6 MW).
 
-Dashboard at: `http://localhost:8501`
+**Rotor and wear (the proposal's equations):**
 
----
+$$J\,\frac{d\omega}{dt} = T_{aero} - T_{gen} - B(1+\lambda\delta)\,\omega$$
 
-## User Workflow
+$$\frac{d\delta}{dt} = k_1\,\omega_n^2 + k_2\,\max(T_{bearing}-T_{th},0)^2 + k_3\,|vibration|$$
 
-The dashboard guides you through a 6-step workflow:
+- $T_{aero}$ comes from the Heier $C_p(\lambda,\beta)$ model, scaled by the calibrated factor η = 0.90.
+- Bearing temperature relaxes (time constant 20 min) towards an operating-point value that rises with
+  rotor speed, torque **and wear**: $T_{amb} + 25\,\omega_n^2(0.5+0.5\,\tau_n)(1+\delta)$ °C. A worn turbine
+  runs hotter, so the same operation wears it faster. This coupling is what makes the best policy
+  differ between regimes.
+- Vibration grows with speed, wear and rotor acceleration (aggressive control is punished).
+- Integration step 1 s; the agent acts every 30 s; one episode = 240 actions = 2 hours of operation.
 
-| Step | Action | Description |
-|:----:|--------|-------------|
-| 1 | **Configure** | Browse/edit training configs — episodes, batch size, reward weights, agent parameters |
-| 2 | **Train** | Launch training jobs with chosen config |
-| 3 | **Monitor** | Watch real-time reward curves, episode logs, job status |
-| 4 | **Analyse** | Deep-dive into completed runs — gating dynamics, degradation, rewards |
-| 5 | **Compare** | Side-by-side comparison of training runs |
-| 6 | **Export** | Download CSV logs, model checkpoints |
+**State (observation):** $[\omega, v, T_{gen}, T_{bearing}, P_{out}, \delta]$ as in the proposal,
+plus the two current control offsets (the agent's actions are increments, so it needs to see where it
+already is).
 
-### Dashboard Pages
+**Action (continuous, bounded):** the turbine keeps its standard inner controller (optimal-torque law
+below rated wind, PI pitch control above). The agent is a **health-aware supervisor** that adjusts it:
+- `a[0]`: blade-pitch offset change, ±2° per step, offset kept in [0°, 20°]
+- `a[1]`: generator-torque gain change, ±0.05 per step, gain kept in [0.6, 1.3]
 
-- **Home** — System overview, quick actions, recent activity
-- **Training Manager** — Full training lifecycle (configure → train → monitor → compare → simulate)
-- **Training Overview** — Episode reward curves, gating weights, degradation tracking
-- **Agent Analysis** — Dominance stats, correlation matrices, routing visualization
-- **Environment Sim** — Interactive wind turbine simulation
-- **Reward Analysis** — Component breakdown, phase evolution, radar chart
-- **Architecture** — Interactive Mermaid diagrams of all subsystems
-- **Raw Data** — Full training log with export
-- **Settings** — Backend connection, preferences, API reference
+With both offsets neutral the turbine is exactly the **fixed rated-power controller** (the non-learning
+reference in Exp 1).
 
----
+**Reward (weights fixed for all methods):**
 
-## API Endpoints
+$$r_t = \beta_1\frac{P_{out}}{P_{rated}} - \beta_2(\delta_{t+1}-\delta_t) - \beta_3\max(T_{bearing}-T_{safe},0) - \beta_4\,\mathbb{1}_{unsafe}$$
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/health` | System status, device, active jobs |
-| `GET` | `/api/workflow` | 6-step recommended workflow |
-| `GET` | `/api/configs/` | List training configurations |
-| `GET` | `/api/configs/{name}` | Get full config details |
-| `PUT` | `/api/configs/{name}` | Update config fields |
-| `POST` | `/api/configs/{name}/clone` | Clone a config |
-| `POST` | `/api/training/start` | Start training job |
-| `GET` | `/api/training/jobs` | List all jobs |
-| `GET` | `/api/training/jobs/{id}` | Get job status |
-| `POST` | `/api/training/jobs/{id}/cancel` | Cancel running job |
-| `GET` | `/api/training/jobs/{id}/logs` | Get job logs |
-| `GET` | `/api/runs/` | List completed runs |
-| `GET` | `/api/runs/{name}` | Get run metrics (paginated) |
-| `GET` | `/api/runs/{name}/csv` | Download training CSV |
-| `GET` | `/api/runs/{name}/checkpoint` | Download model checkpoint |
-| `GET` | `/api/runs/{a}/compare/{b}` | Compare two runs |
-| `POST` | `/api/simulation/run` | Run environment simulation |
+with β = (1, 2000, 0.05, 2), $T_{safe}$ = 70 °C, unsafe = overspeed > 1.2× rated, bearing > 95 °C or
+power > 1.15× rated. Crossing δ = 0.9 ends the episode as a **critical failure** (extra penalty 50).
 
----
+**Health regimes = meta-learning tasks:** R0 healthy (δ 0-0.25), R1 mild (0.25-0.5), R2 moderate
+(0.5-0.75), R3 critical (0.75-0.85 at the start, failure at 0.9). Each task also randomises the
+friction growth λ ∈ [0.5, 1.5], the wear coefficients k₁-k₃ (±25 %) and the wind segment.
+**R2 is held out entirely** from meta-training and joint training.
 
-## iPAE: Interpretable Physics-Informed Autoencoder
+## 5. Methods (`windrl/sac.py`, `windrl/core.py`)
 
-The iPAE module provides interpretable degradation analysis through physics-constrained latent dimensions:
+| | Method | Initialisation before adapting to the target turbine |
+|---|---|---|
+| (a) | SAC from scratch | random weights |
+| (b) | SAC pre-trained on one regime + fine-tune | SAC trained on R0 (healthy) |
+| (c) | SAC pre-trained on all regimes jointly | SAC trained on R0, R1, R3 mixed (the fairest control: same data, no meta-learning) |
+| (d) | **First-order MAML + SAC, Reptile outer update** (main method) | meta-learned on R0, R1, R3 |
+| (e) | FOMAML + SAC, query-gradient outer update | meta-learned on R0, R1, R3 |
 
-| Dim | Physical Meaning | Constraint | Activation |
-|:---:|------------------|------------|------------|
-| $z_1$ | Wear Index | Monotone ↑ | Softplus |
-| $z_2$ | Thermal Drift | Bounded | Tanh |
-| $z_3$ | Fatigue Accumulation | Monotone ↑ | Softplus |
-| $z_4$ | Imbalance Severity | Oscillatory | Sin |
-| $z_5$ | Lubrication State | Step-wise ↓ | Sigmoid |
-| $z_6$ | Crack Propagation | Monotone ↑ | Softplus |
-| $z_7$ | Misalignment | Bounded | Tanh |
-| $z_8$ | Residual | None | Linear |
+**First-order MAML for off-policy SAC.** Every task (4 per training regime) keeps its own replay
+buffer. Per meta-iteration, for one task from each training regime: clone θ → θ′, collect one episode
+with θ′, then run SAC updates on θ′ (inner loop). No second derivatives are used in either variant.
+The two variants differ only in the outer (meta) update:
 
-**Loss function:**
+- **(d) Reptile** (Nichol et al., 2018): θ ← θ + ε · mean(θ′ − θ), after 120 inner updates, with ε
+  annealed from 1.0 to 0.1. This is the default.
+- **(e) FOMAML query gradient** (Finn et al., 2017, first-order form): after 119 inner updates take the
+  SAC-loss gradient at θ′ on a fresh batch, average over tasks and step θ with Adam.
 
-$$\mathcal{L}_{\text{iPAE}} = \mathcal{L}_{\text{recon}} + \lambda_p \mathcal{L}_{\text{ODE}} + \lambda_r \mathcal{L}_{\text{RUL}} + \lambda_m \mathcal{L}_{\text{mono}} + \lambda_{KL} \text{KL}(q \| p)$$
+Variant (e) is the textbook form named in the proposal. It is kept for transparency because, with only
+60 outer steps, it barely moves θ (each meta step is one small Adam step on a noisy SAC loss), so its
+initialisation stays close to random (Fig. 7). Reptile moves θ a large fraction of the way towards the
+adapted weights at every step, which makes it usable at this budget. In both variants the meta
+target-critic is the mean of the adapted learners' target critics.
 
----
+**Equal budgets (so differences come from the method, not from compute):**
+- pre-training: 60 iterations × 3 episodes = 180 episodes (43,200 steps) and 120 gradient computations
+  per episode for (b), (c), (d), (e) and the single-regime SACs of Exp 1;
+- adaptation: K episodes on the target turbine (training-period wind), 120 SAC updates after each.
 
-## Tech Stack
+**Metrics:** degradation increase per episode (δ_final − δ_initial), degradation slope (per hour),
+average return, adaptation speed (episodes to recover 90 % of the oracle's improvement over the fixed
+controller, where the oracle is SAC trained directly on that regime), critical-failure rate, and the
+generalisation gap (same-regime minus cross-regime return). 5 seeds, mean ± std.
 
-| Component | Technology |
-|-----------|-----------|
-| Deep Learning | PyTorch 2.0+ |
-| RL Environment | Gymnasium |
-| GP Module | GPyTorch |
-| Backend API | FastAPI + Uvicorn |
-| Dashboard | Streamlit + Plotly |
-| Monitoring | TensorBoard |
-| Scientific Computing | NumPy, SciPy, Pandas |
+## 6. Results
 
----
+All numbers below come from the full run (5 seeds, 62.6 min on 2 CPU cores). Every evaluation
+uses October-December 2018 wind that no policy trained on. Full tables: `results/RESULTS.md`.
 
-## Wind Turbine Environment
+### 6.1 Main findings
 
-**State Space** ($\mathbb{R}^8$): Rotor speed, wind speed, generator torque, bearing temperature, power output, degradation index, grid demand, weather variability.
+1. **Learning helps most where the turbine is worn (Exp 1).** SAC trained on a regime beats the fixed
+   rated-power controller in every regime, and the gap grows with degradation: on R2 the return is
+   34.6 vs 2.4 and δ grows 24 % slower; on R3 δ grows 31 % slower and the critical-failure rate halves
+   (12.5 % vs 25 %). On a healthy turbine (R0) the fixed controller is already near-optimal (82.7 vs 85.1).
+2. **Policies do not transfer to more degraded regimes (Exp 2).** The healthy-turbine policy collapses
+   on worn turbines (85 on R0 → 13.5 on R2 → −3.5 on R3, failure rate up to 20 %). Transfer the other
+   way works much better: the R3 policy is conservative and does well on R0-R2. This asymmetry is the
+   motivation for regime-aware adaptation.
+3. **On the unseen regime R2, the meta-learned initialisation (d) adapts far better than training from
+   scratch or fine-tuning a healthy-turbine policy.** With zero adaptation episodes it scores
+   27.2 ± 3.3, about 3× scratch (8.3) and 2× the R0-pretrained policy (13.5), has **zero critical
+   failures at every K**, and reaches 33.7 at K = 20 (oracle 34.6). Its spread across seeds is the
+   smallest of all methods (± 3-4 vs ± 10-23).
+4. **But joint multi-regime SAC (c), trained on exactly the same data without meta-learning, is as good
+   or better on average** (32.0 at K = 0 on R2; 16.5 vs 6.7 on R3), with much larger seed-to-seed
+   variance and a few failures. So in this testbed the benefit comes mainly from *training across
+   regimes*; the meta-learning outer loop mostly buys consistency, not a higher mean. This matches
+   reports that multi-task pre-training plus fine-tuning is a strong baseline for meta-RL
+   (Mandi et al., 2022).
+5. **The textbook query-gradient FOMAML (e) does not work at this budget**: it is worse than scratch
+   for K ≤ 5 and its pre-training curve stalls (Fig. 7). Reptile's outer update is what makes
+   first-order meta-learning usable here.
+6. **Degradation per episode is hard to separate between methods.** After a few adaptation episodes all
+   methods land at δ increases of 0.026-0.033 per 2-hour episode on R2, within one standard deviation
+   of each other. The return differences come mostly from power capture, bearing temperature and
+   failures, not from large differences in wear.
+7. **β₂ ablation.** The advantage of (d) over scratch grows as wear is penalised more: at β₂ = 4000
+   the return gap is +34 to +48 for K = 1-10 and (d) has lower δ growth at every K ≥ 1
+   (up to −0.013 per episode). The meta-learned prior matters more when the reward cares about health.
+8. **Research question, answered honestly:** a meta-initialised SAC *does* adapt faster and more
+   safely than SAC from scratch or fine-tuned from the healthy regime, including on the held-out
+   regime, but it does **not** beat a jointly trained multi-regime SAC on average return or wear.
 
-**Action Space** ($\mathbb{R}^3$): Pitch angle change (±15°), torque setpoint delta (±0.1), maintenance signal ([0,1]).
+### 6.2 Figures
 
-**Physics:** Aerodynamic torque via $C_p(\lambda, \beta)$, convective thermal dynamics, stress-dependent degradation accumulation. Critical threshold at $\delta = 0.9$.
+**Exp 1 and Exp 2: single-regime baseline and the cross-regime gap**
 
----
+![single](figures/fig2_single_regime.png)
+![cross](figures/fig3_cross_regime.png)
+
+**Exp 3-4: few-shot adaptation** (mean ± std over 5 seeds; dashed = SAC trained on the target regime,
+dotted = fixed controller)
+
+![adapt](figures/fig4_adaptation_curves.png)
+
+**One R2 test episode (δ₀ = 0.70, unseen wind)**. Differences within a single 2-hour episode are
+small; the R2-specialist is the only policy that moves the pitch offset away from zero.
+
+![traj](figures/fig5_episode_trajectories_R2.png)
+
+**β₂ ablation** (method (d) minus scratch, seeds 0-2) and **pre-training curves**
+
+![abl](figures/fig6_beta2_ablation.png)
+![train](figures/fig7_pretraining_curves.png)
+
+### 6.3 Tables
+
+Seeds: 5 (mean ± std). Episode = 2 h of turbine operation (240 steps x 30 s). Evaluation: 8 fixed episodes with unseen Oct-Dec 2018 wind. Simulator power-curve RMSE vs measured SCADA curve: 0.044 of rated power.
+
+### Exp 1: single-regime baseline
+
+| Regime | SAC return | Fixed return | SAC δ increase | Fixed δ increase | SAC failure rate | Fixed failure rate |
+|---|---|---|---|---|---|---|
+| R0 healthy | 85.1 ± 3.4 | 82.7 | 0.009 ± 0.000 | 0.0090 | 0.000 ± 0.000 | 0.000 |
+| R1 mild | 82.5 ± 2.6 | 74.6 | 0.011 ± 0.001 | 0.0127 | 0.000 ± 0.000 | 0.000 |
+| R2 moderate | 34.6 ± 13.0 | 2.4 | 0.030 ± 0.006 | 0.0393 | 0.025 ± 0.050 | 0.125 |
+| R3 critical | 22.6 ± 3.8 | -5.6 | 0.021 ± 0.001 | 0.0306 | 0.125 ± 0.000 | 0.250 |
+
+### Exp 2: cross-regime return (rows = trained on, columns = tested on)
+
+| | test R0 | test R1 | test R2 | test R3 |
+|---|---|---|---|---|
+| train R0 | 85.1 | 72.1 | 13.5 | -3.5 |
+| train R1 | 87.2 | 82.5 | 18.8 | 14.2 |
+| train R2 | 74.0 | 78.8 | 34.6 | 15.8 |
+| train R3 | 67.9 | 69.8 | 49.2 | 22.6 |
+
+Generalisation gap (same-regime minus cross-regime return):
+
+| | test R0 | test R1 | test R2 | test R3 |
+|---|---|---|---|---|
+| train R0 | 0.0 | 10.4 | 21.0 | 26.1 |
+| train R1 | -2.1 | 0.0 | 15.8 | 8.4 |
+| train R2 | 11.1 | 3.7 | 0.0 | 6.8 |
+| train R3 | 17.2 | 12.7 | -14.6 | 0.0 |
+
+### Exp 3-4: adaptation to R2 moderate (unseen during meta-training)
+
+| Method | return K=0 | return K=1 | return K=5 | return K=10 | return K=20 | δ increase K=5 | failure K=0 | failure K=5 | episodes to 90 % of oracle (per seed) |
+|---|---|---|---|---|---|---|---|---|---|
+| (a) SAC from scratch | 8.3 ± 5.3 | -1.3 ± 22.9 | 22.2 ± 6.2 | 10.8 ± 6.9 | 22.4 ± 11.1 | 0.028 ± 0.006 | 0.000 ± 0.000 | 0.000 ± 0.000 | never, 20, never, never, 5 |
+| (b) SAC pre-trained R0 + fine-tune | 13.5 ± 8.5 | 10.9 ± 11.7 | 17.3 ± 12.8 | 15.8 ± 9.7 | 19.4 ± 12.2 | 0.027 ± 0.010 | 0.075 ± 0.061 | 0.050 ± 0.061 | never, never, never, 20, 1 |
+| (c) SAC joint multi-regime | 32.0 ± 15.8 | 29.9 ± 14.2 | 34.6 ± 10.4 | 32.7 ± 12.4 | 31.9 ± 9.7 | 0.028 ± 0.005 | 0.025 ± 0.050 | 0.000 ± 0.000 | 0, 0, 0, 20, 5 |
+| (d) First-order MAML + SAC, Reptile update | 27.2 ± 3.3 | 24.9 ± 4.1 | 26.6 ± 3.7 | 29.9 ± 2.6 | 33.7 ± 4.2 | 0.029 ± 0.001 | 0.000 ± 0.000 | 0.000 ± 0.000 | 10, 20, 0, 20, never |
+| (e) FOMAML + SAC, query-gradient update | -2.6 ± 14.5 | -8.3 ± 14.9 | -3.1 ± 27.8 | 19.4 ± 11.8 | 25.5 ± 9.6 | 0.032 ± 0.005 | 0.025 ± 0.050 | 0.050 ± 0.061 | never, 20, 10, never, never |
+
+Oracle (SAC trained on R2): 34.6; fixed controller: 2.4.
+
+### Exp 3-4: adaptation to R3 critical (seen during meta-training)
+
+| Method | return K=0 | return K=1 | return K=5 | return K=10 | return K=20 | δ increase K=5 | failure K=0 | failure K=5 | episodes to 90 % of oracle (per seed) |
+|---|---|---|---|---|---|---|---|---|---|
+| (a) SAC from scratch | -7.7 ± 1.2 | -14.2 ± 14.5 | -6.0 ± 17.1 | 9.2 ± 10.2 | 17.4 ± 6.3 | 0.025 ± 0.005 | 0.150 ± 0.050 | 0.175 ± 0.061 | 20, never, 10, never, never |
+| (b) SAC pre-trained R0 + fine-tune | -3.5 ± 4.6 | 0.4 ± 9.4 | -12.5 ± 13.9 | -8.9 ± 20.3 | 2.3 ± 13.7 | 0.023 ± 0.007 | 0.200 ± 0.061 | 0.175 ± 0.061 | never, never, never, never, never |
+| (c) SAC joint multi-regime | 16.5 ± 11.9 | 15.8 ± 11.3 | 11.9 ± 11.0 | 11.8 ± 9.1 | 18.3 ± 11.2 | 0.024 ± 0.004 | 0.150 ± 0.050 | 0.150 ± 0.050 | 0, 0, 20, never, 0 |
+| (d) First-order MAML + SAC, Reptile update | 6.7 ± 3.7 | 7.1 ± 5.8 | 5.3 ± 7.9 | 11.3 ± 4.3 | 12.2 ± 3.0 | 0.026 ± 0.003 | 0.150 ± 0.050 | 0.125 ± 0.000 | never, never, never, never, never |
+| (e) FOMAML + SAC, query-gradient update | -9.5 ± 6.4 | -8.4 ± 9.4 | -5.2 ± 6.2 | 7.1 ± 4.8 | 10.0 ± 6.6 | 0.024 ± 0.006 | 0.125 ± 0.000 | 0.150 ± 0.050 | never, never, never, never, never |
+
+Oracle (SAC trained on R3): 22.6; fixed controller: -5.6.
+
+### Ablation on β₂ (target R2, seeds 0-2): method (d) minus scratch
+
+| β₂ | Δreturn K=0 | Δreturn K=1 | Δreturn K=5 | Δreturn K=10 | Δreturn K=20 | Δ(δ increase) K=0 | Δ(δ increase) K=1 | Δ(δ increase) K=5 | Δ(δ increase) K=10 | Δ(δ increase) K=20 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1000 | 33.2 | 33.2 | 4.6 | 6.1 | 1.5 | +0.0079 | -0.0016 | -0.0040 | -0.0053 | -0.0019 |
+| 2000 | 24.1 | 30.9 | 6.2 | 18.2 | 11.5 | +0.0077 | -0.0003 | -0.0035 | -0.0096 | -0.0041 |
+| 4000 | 23.4 | 46.7 | 33.8 | 47.6 | 29.0 | +0.0034 | -0.0052 | -0.0094 | -0.0132 | -0.0075 |
+
+
+## 7. What was removed from HMARL-DRT, and why
+
+| Removed | Reason |
+|---|---|
+| GP / iPAE agent, PINN agent, foundation-model agent, LAYA agent | Not in the proposal; one learner (SAC) is enough to answer the research question |
+| Shared embedding space, MoE arbiter, transfer-learning hub | Only needed to combine several agents |
+| Dynamic (phase-adaptive) reward shaper | The proposal fixes the reward weights for all methods on purpose |
+| CEMRL / EWC continual learning, PEARL code | PEARL was an optional stretch baseline; EWC is not part of the plan |
+| FastAPI backend, Streamlit dashboard, vendored `fastapi`/`plotly`/`pydantic` stubs | Not needed for an RL course project |
+| ~20 validation / deep-dive scripts and ~25 YAML configs | Replaced by one runner and one figure script |
+| 8-D state with grid demand and weather forecast, maintenance action | Back to the proposal's state and the two control actions |
+| Synthetic sine-wave wind | Replaced by real 2018 SCADA wind with a time-based train/test split |
+
+The old environment also had a few modelling problems that the new one avoids (normalised and SI
+units mixed in the rotor equation, a hard-coded 15° base pitch, wind not tied to any data).
+
+## 8. Limitations
+
+- The simulator is deliberately simple and is not full turbine physics (no tower/blade loads,
+  no yaw, a lumped bearing temperature model). It is a proof-of-concept testbed.
+- Bearing temperature, vibration and wear coefficients are assumptions, not fitted to data,
+  because the public SCADA file has no such channels.
+- Wear is accelerated so that regime effects show up within 2-hour episodes.
+- Budgets are small (180 pre-training episodes, 5 seeds) so the whole study runs on a laptop CPU in
+  about an hour; with this many seeds several differences in Section 6 are within one standard deviation.
+- The β₂ ablation uses 3 seeds and re-trains only method (d) and scratch.
 
 ## References
 
-- Haarnoja et al., "Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning," ICML 2018.
-- Jacobs et al., "Adaptive Mixtures of Local Experts," Neural Computation, 1991.
-- Raissi et al., "Physics-Informed Neural Networks," Journal of Computational Physics, 2019.
-- Rasmussen & Williams, "Gaussian Processes for Machine Learning," MIT Press, 2006.
-
----
-
-<div align="center">
-
-**Predictive Analytics Core** · Siemens
-
-</div>
+1. T. Haarnoja et al., Soft Actor-Critic, ICML 2018.
+2. C. Finn, P. Abbeel, S. Levine, Model-Agnostic Meta-Learning, ICML 2017.
+3. A. Nichol, J. Achiam, J. Schulman, On First-Order Meta-Learning Algorithms, arXiv:1803.02999, 2018.
+4. K. Rakelly et al., PEARL, ICML 2019.
+5. M. Towers et al., Gymnasium, arXiv:2407.17032, 2024.
+6. J. Jonkman et al., NREL 5-MW Reference Wind Turbine, NREL/TP-500-38060, 2009.
+7. B. Erisen, Wind Turbine SCADA Dataset, Kaggle, 2018.
+8. Z. Mandi, P. Abbeel, S. James, On the Effectiveness of Fine-tuning Versus Meta-reinforcement Learning, NeurIPS 2022 (arXiv:2206.03271).
