@@ -1,10 +1,9 @@
 # Degradation-Aware Wind Turbine Control with SAC + FOMAML (real wind data)
 
 **Course:** Applied Reinforcement Learning and Optimization (IM612031), IIT Kharagpur
-**Team:** Adarsh Singh (23GG10001), Palak Agarwal (23EC10055), Jeesica GR (23MT10027), Rishabh Dehariya (23IM10028)
+**Team:** Rishabh Dehariya (23IM10028), Sourav Upadhyay(23IM10035)
 
-This repository is the **reduced version** of the earlier HMARL-DRT code base. It implements exactly the
-project proposal and nothing more: one simulator, one RL algorithm (SAC), first-order MAML for
+It implements exactly the project proposal and nothing more: one simulator, one RL algorithm (SAC), first-order MAML for
 meta-learning (in two variants), three baselines and the planned metrics. The simulator is driven by **real
 measured wind** from a wind turbine's SCADA system.
 
